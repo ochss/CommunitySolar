@@ -44,7 +44,7 @@ def load_data():
 
 # Load the data from the database.
 df = load_data()
-
+st.set_page_config(layout="wide") 
 st.title("Community Solar Locations in Valparaiso")
 st.subheader("Data Preview")
 st.dataframe(df.head())
