@@ -95,8 +95,6 @@ grid_response = AgGrid(
     theme='blue'
 )
 
-print(grid_response.keys())
-print(grid_response['selected_rows'])
 # Check the selected row.
 selected_rows = grid_response.get('selected_rows')
 selected_location = None
@@ -113,9 +111,6 @@ else:
         selected_location = selected_rows[0]
         st.markdown("### Selected Location Details")
         st.write(selected_location)
-
-
-    
 
 ## Mapping ##
 lat_col = 'latitude'
@@ -140,18 +135,30 @@ if lat_col in filtered_df.columns and lon_col in filtered_df.columns:
     for idx, row in filtered_df.iterrows():
         # Use a different marker color for the selected row.
         if selected_location is not None and row[lat_col] == selected_location[lat_col] and row[lon_col] == selected_location[lon_col]:
-            # Marker for the selected row.
+            popup_html = "<b>Selected Location</b><br>"
+            for col in filtered_df.columns:
+                if col == "Google Maps Link":
+                    popup_html += f'<a href="{row[col]}" target="_blank">View on Google Maps</a><br>'
+                else:
+                    popup_html += f"<b>{col}:</b> {row[col]}<br>"
             folium.Marker(
                 location=[row[lat_col], row[lon_col]],
-                popup="Selected Location",
+                popup=popup_html,
                 icon=folium.Icon(color='red')
             ).add_to(m)
         else:
+            popup_html = ""
+            for col in filtered_df.columns:
+                if col == "Google Maps Link":
+                    popup_html += f'<a href="{row[col]}" target="_blank">View on Google Maps</a><br>'
+                else:
+                    popup_html += f"<b>{col}:</b> {row[col]}<br>"
             folium.Marker(
                 location=[row[lat_col], row[lon_col]],
-                popup=f"<b>Location ID:</b> {row['location_id']}",
+                popup=popup_html,
                 icon=folium.Icon(color='blue')
             ).add_to(m)
+
             
     # Render the map.
     st_folium(m, width=700, height=500)
