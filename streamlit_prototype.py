@@ -149,7 +149,8 @@ if lat_col in filtered_df.columns and lon_col in filtered_df.columns:
         else:
             folium.Marker(
                 location=[row[lat_col], row[lon_col]],
-                popup=f"<b>Location ID:</b> {row['location_id']}"
+                popup=f"<b>Location ID:</b> {row['location_id']}",
+                icon=folium.Icon(color='blue')
             ).add_to(m)
             
     # Render the map.
