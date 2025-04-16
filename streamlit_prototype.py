@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 st.set_page_config(layout="wide")  # Make app wide
 
@@ -84,17 +84,6 @@ gb = GridOptionsBuilder.from_dataframe(filtered_df)
 
 # Configure AgGrid to allow single row selection.
 gb.configure_selection(selection_mode="single", use_checkbox=False)
-
-gb.configure_column(
-    "Google Maps URL",
-    headerName="Google Maps Link",
-    cellRenderer=(
-        "function(params) { "
-        "  return `<a href='${params.value}' target='_blank'>View on Google Maps</a>`; "
-        "}"
-    ),
-    width=300
-)
 
 gridOptions = gb.build()
 
