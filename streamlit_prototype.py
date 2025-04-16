@@ -95,6 +95,8 @@ grid_response = AgGrid(
     theme='blue'
 )
 
+print(grid_response.keys())
+print(grid_response['selected_rows'])
 # Check the selected row.
 selected_rows = grid_response.get('selected_rows')
 selected_location = None
