@@ -44,7 +44,7 @@ def load_data():
 
 # Load the data from the database.
 df = load_data()
-st.set_page_config(layout="wide") 
+#st.set_page_config(layout="wide") 
 st.title("Community Solar Locations in Valparaiso")
 st.subheader("Data Preview")
 st.dataframe(df.head())
@@ -108,7 +108,7 @@ if lat_col in filtered_df.columns and lon_col in filtered_df.columns:
         ).add_to(m)
     
     # Render the Folium map within Streamlit and capture click events.
-    map_response = st_folium(m, width=700, height=500)
+    map_response = st_folium(m, width=1200, height=1000)
     
     # Check for click events. st_folium returns a dictionary with key "last_clicked".
     if map_response and "last_clicked" in map_response and map_response["last_clicked"]:
