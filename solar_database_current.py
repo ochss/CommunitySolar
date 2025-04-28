@@ -430,7 +430,7 @@ class community_solarDatabase:
     def get_and_insert_solar_data(self):
         cursor = self.conn.cursor()
         # When not in google solar table, get the first 10 locations from the LOCATIONS table
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT 
                 location_id, latitude, longitude, has_solar_data
             FROM 
@@ -438,11 +438,13 @@ class community_solarDatabase:
             WHERE 
                 location_id NOT IN (SELECT location_id FROM GOOGLE_SOLAR) 
             AND 
-                has_solar_data = 0
+                has_solar_data = 1
             AND 
                 dlgf_prop_class_code LIKE '6%%'
             ORDER BY 
                 location_id 
+            LIMIT 
+                5
             """)
         locations = cursor.fetchall()
         for location in locations:
