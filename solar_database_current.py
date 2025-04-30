@@ -631,8 +631,8 @@ class community_solarDatabase:
         # Gets the newest address data from the Indiana map and saves it to a CSV file
         # Creates the LOCATIONS table and inserts the address data into the table for every location
         #self.get_locations_data()
-        self.check_locations_table_exists()
-        self.insert_locations_data()
+        #self.check_locations_table_exists()
+        #self.insert_locations_data()
 
         '''
         We have currently dropped this table to save time and space.
@@ -645,11 +645,11 @@ class community_solarDatabase:
         #self.insert_nonprofit_data()
 
         # Creates the GOOGLE_SOLAR table
-        self.check_google_solar_table_exists()
+        #self.check_google_solar_table_exists()
 
         # Creates the CEJST table and inserts the CEJST data into the table for every location
-        self.check_cejst_table_exists()
-        self.insert_cejst_data()
+        #self.check_cejst_table_exists()
+        #self.insert_cejst_data()
 
         # Creates the PROPERTY_CODES table and inserts the property codes data into the table
         self.check_property_codes_table_exists()
@@ -670,7 +670,7 @@ if __name__ == "__main__":
 
     db = community_solarDatabase()
     #db.clear_database()
-    #db.create_database_and_build()
-    db.get_and_insert_solar_data()
+    db.create_database_and_build()
+    #db.get_and_insert_solar_data()
 
 

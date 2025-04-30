@@ -28,14 +28,18 @@ def load_data():
         GOOGLE_SOLAR.yearly_energy_dc_kwh,
         GOOGLE_SOLAR.carbon_offset_factor_kg_per_mwh,
         GOOGLE_SOLAR.estimated_annual_co2_savings_tons,
-        GOOGLE_SOLAR.estimated_houses_powered
-
+        GOOGLE_SOLAR.estimated_houses_powered,
+        PROPERTY_CODES.description AS property_code_description
     FROM 
         LOCATIONS
     INNER JOIN 
         GOOGLE_SOLAR
     ON
         GOOGLE_SOLAR.location_id = LOCATIONS.location_id 
+    INNER JOIN 
+        PROPERTY_CODES
+    ON
+        LOCATIONS.dlgf_prop_class_code = PROPERTY_CODES.property_code
     WHERE 
         LOCATIONS.dlgf_prop_class_code LIKE '6%%'
     """
@@ -72,7 +76,8 @@ def load_data():
         'yearly_energy_dc_kwh': 'Yearly Energy DC (kWh)',
         'carbon_offset_factor_kg_per_mwh': 'Carbon Offset Factor (kg/MWh)',
         'estimated_annual_co2_savings_tons': 'Estimated Annual CO2 Savings (tons)',
-        'estimated_houses_powered': 'Estimated Houses Powered'
+        'estimated_houses_powered': 'Estimated Houses Powered',
+        'property_code_description': 'Property Code Description'
     }, inplace=True)
     # Reorder columns for better readability
     column_order = [
@@ -80,7 +85,7 @@ def load_data():
         'Max Array Panels Count', 'Panel Capacity (Watts)', 'Nominal Power (Watts)',
         'Yearly Energy DC (kWh)', 'Carbon Offset Factor (kg/MWh)',
         'Estimated Annual CO2 Savings (tons)', 'Estimated Houses Powered',
-        'Age of Solar Imagery (years)', 'Google Maps Link', 'latitude', 'longitude'
+        'Age of Solar Imagery (years)', 'Google Maps Link', 'Property Code Description', 'latitude', 'longitude'
     ]
     df = df[column_order]
 
@@ -100,12 +105,17 @@ with col1:
     selected_cities = st.multiselect("Select City(s)", cities)
 
 with col2:
-    codes = sorted(df['Property Code'].unique())
+    # Get unique property codes and descriptions combine into a single string
+    property_code_descriptions = (df['Property Code'].astype(str) + "-" + df['Property Code Description'].astype(str))
+    codes = sorted(property_code_descriptions.unique())
     # No default selection
     selected_codes = st.multiselect("Select Property Code(s)", codes)
 
 # Only filter and render data if both filters have a selection.
 if selected_cities and selected_codes:
+    # Remove the description part from the selected codes for filtering.
+    selected_codes = [int(code.split("-")[0]) for code in selected_codes]
+    print(selected_codes)
     # Filter the dataframe based on the selected cities and property codes.
     filtered_df = df[df['City'].isin(selected_cities) & df['Property Code'].isin(selected_codes)]
 
@@ -203,6 +213,6 @@ if selected_cities and selected_codes:
 
                 
         # Render the map.
-        st_folium(m, width=700, height=500)
+        st_folium(m, width=1000, height=800)
 else:
     st.info("Please select one or more filters to display data.")
