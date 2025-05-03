@@ -129,7 +129,7 @@ if selected_cities and selected_codes and selected_disadvantaged:
     # Remove the description part from the selected codes for filtering.
     selected_codes = [int(code.split("-")[0]) for code in selected_codes]
     print(selected_codes)
-    # Filter the dataframe based on the selected cities and property codes.
+    # Filter the dataframe based on the selected filters.
     filtered_df = df[df['City'].isin(selected_cities) & df['Property Code'].isin(selected_codes) & df['Disadvantaged Flag'].isin(selected_disadvantaged)]
 
     if filtered_df.empty:
