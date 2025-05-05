@@ -3,8 +3,6 @@ import sqlite3
 import time
 import pandas as pd
 import os
-import json
-
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -15,10 +13,12 @@ from webdriver_manager.chrome import ChromeDriverManager
 import csv
 import time
 
-
+# This script is designed to scrape data from the Indiana Map and the Indiana Nonprofit database,
+# and store it in a SQLite database. It also interacts with the Google Solar API to fetch solar data for locations.
 class community_solarDatabase:
     def __init__(self):
         self.conn = sqlite3.connect("community_solar.db")
+        # you need to create a file called google_api_key.txt and put your google api key in it
         self.api_key = open("google_api_key.txt", "r").read().strip()
 
     ### Start of locations table methods ###
@@ -26,10 +26,11 @@ class community_solarDatabase:
     def get_locations_data(self):
         # Source page: https://www.indianamap.org/datasets/INMap::address-points-of-indiana-current/explore?location=39.705743%2C-86.396120%2C7.96
         url = "https://hub.arcgis.com/api/download/v1/items/9b222d07cc164eb384a24742cbf1d274/csv?redirect=false&layers=0"
-
+        # fetch the CSV file from the URL
         while True:
             response = requests.get(url)
             data = response.json()
+            # check if the status is "Completed"
             if data.get("status") == "Completed":
                 result_url = data.get("resultUrl")
                 print(
@@ -37,10 +38,11 @@ class community_solarDatabase:
                     result_url,
                 )
                 break
+            # wait for 5 seconds and retry if the status is not "Completed"
             else:
                 print(f"Status is '{data.get('status')}'. Waiting and retrying...")
                 time.sleep(5)
-
+        # download the CSV file from the result URL
         csv_response = requests.get(result_url)
         if csv_response.ok:
             self.process_locations_data(csv_response)
@@ -49,9 +51,12 @@ class community_solarDatabase:
             print("Failed to download CSV. Status code:", csv_response.status_code)
 
     def process_locations_data(self, csv_response):
+        # save the CSV response content to a file
         with open("locations_data.csv", "wb") as file:
             file.write(csv_response.content)
+        # read the CSV file into a DataFrame
         df = pd.read_csv("locations_data.csv")
+        # drop unnecessary columns
         columns_to_keep = [
             "latitude",
             "longitude",
@@ -64,11 +69,13 @@ class community_solarDatabase:
             "geobg10",
             "geobg20"
         ]
+        # modify the dataframe to keep only the necessary columns and save it back to the CSV file
         df = df[columns_to_keep]
         df.to_csv("locations_data.csv", index=False)
 
     def check_locations_table_exists(self):
         cursor = self.conn.cursor()
+        # check if the LOCATIONS table exists in the database
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='LOCATIONS';"
         )
@@ -82,7 +89,7 @@ class community_solarDatabase:
 
     def create_locations_table(self):
         cursor = self.conn.cursor()
-        # Read the CSV file to get the header names (ensure the file name matches)
+        # read the CSV file to get the header names (ensure the file name matches)
         df = pd.read_csv("locations_data.csv", low_memory=False)
         header = df.columns
         columns_definitions = []
@@ -97,23 +104,26 @@ class community_solarDatabase:
             "longitude": "REAL",
             "dlgf_prop_class_code": "INTEGER"
         }
+        # loop through the header names and create the column definitions
         for col in header:
             col_type = column_type_mapping.get(col, "TEXT")
             col_definition = f'"{col}" {col_type}'
             columns_definitions.append(col_definition)
+        # create the SQL query to create the table
         columns_sql = ", ".join(columns_definitions)
         table_name = "LOCATIONS"
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_sql});"
         print("Creating table with query:")
         print(create_table_query)
+        # create the table in the database
         cursor.execute(create_table_query)
         self.conn.commit()
 
     def insert_locations_data(self):
         cursor = self.conn.cursor()
+        # read the CSV file to get the data to insert into the table
         df = pd.read_csv("locations_data.csv", low_memory=False)
         df.fillna("", inplace=True)
-        print("Columns:", df.columns.tolist())
         header = df.columns
         table_name = "LOCATIONS"
         # SQLite uses ? as the placeholder
@@ -122,6 +132,7 @@ class community_solarDatabase:
             f"VALUES ({', '.join(['?' for _ in header])})"
         )
         print("Inserting rows:")
+        # loop through the rows of the DataFrame and insert them into the table
         for index, row in df.iterrows():
             values = row.tolist()
             try:
@@ -140,6 +151,7 @@ class community_solarDatabase:
 
     def check_cejst_table_exists(self):
         cursor = self.conn.cursor()
+        # check if the CEJST table exists in the database
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='CEJST';"
         )
@@ -153,6 +165,7 @@ class community_solarDatabase:
     
     def create_cejst_table(self):
         cursor = self.conn.cursor()
+        # create the CEJST table with the specified columns
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS CEJST (
@@ -167,7 +180,9 @@ class community_solarDatabase:
         
     def insert_cejst_data(self):
         cursor = self.conn.cursor()
+        # read the CEJST data from the CSV file
         df = pd.read_csv("cejst_data.csv", low_memory=False)
+        # filter the DataFrame to keep only the relevant columns
         df_filtered = df[["Census tract 2010 ID", "Identified as disadvantaged"]].copy()
         df_filtered.rename(
             columns={
@@ -176,7 +191,6 @@ class community_solarDatabase:
             },
             inplace=True,
         )
-        print("Columns:", df_filtered.columns.tolist())
         header = df_filtered.columns
         table_name = "CEJST"
         # SQLite uses ? as the placeholder
@@ -185,6 +199,7 @@ class community_solarDatabase:
             f"VALUES ({', '.join(['?' for _ in header])})"
         )
         print("Inserting rows:")
+        # loop through the rows of the DataFrame and insert them into the table
         for index, row in df_filtered.iterrows():
             values = row.tolist()
             try:
@@ -204,41 +219,41 @@ class community_solarDatabase:
         options = Options()
         options.headless = True 
         service = Service(executable_path=ChromeDriverManager().install())
-
+        # set up the Chrome WebDriver
         driver = webdriver.Chrome(service=service, options=options)
-
+        # try to scrape the data from the Indiana Nonprofit database
         try:
             url = "https://www.stats.indiana.edu/nonprofit/inp.aspx"
             driver.get(url)
-
+            # wait for the page to load and the table to be present
             wait = WebDriverWait(driver, 10)
             table = wait.until(EC.presence_of_element_located((By.XPATH, "//table")))
-
+            # wait for the table to load completely
             time.sleep(2)
-
+            # find the table rows and extract the data
             rows = table.find_elements(By.TAG_NAME, "tr")
             data = []
-            
+            # loop through the rows and extract the text from each cell
             for row in rows:
                 cells = row.find_elements(By.TAG_NAME, "td")
                 if not cells:
                     cells = row.find_elements(By.TAG_NAME, "th")
                 if cells:
                     data.append([cell.text.strip() for cell in cells])
-
+            # save the data to a CSV file
             with open("nonprofit_data.csv", "w", newline="", encoding="utf-8") as file:
                 writer = csv.writer(file)
                 writer.writerows(data)
-
             print("Data scraped successfully and saved to nonprofit_data.csv")
-
         except Exception as e:
             print("An error occurred:", e)
         finally:
+            # close the WebDriver
             driver.quit()
 
     def check_nonprofits_table_exists(self):
         cursor = self.conn.cursor()
+        # check if the NONPROFITS table exists in the database
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='NONPROFITS';"
         )
@@ -252,14 +267,17 @@ class community_solarDatabase:
 
     def create_nonprofits_table(self):
         cursor = self.conn.cursor()
+        # read the CSV file to get the header names (ensure the file name matches)
         df = pd.read_csv("nonprofit_data.csv", low_memory=False)
         header = df.columns
         columns_definitions = []
+        # loop through the header names and create the column definitions
         for col in header:
             col_definition = f'"{col}" TEXT'
             columns_definitions.append(col_definition)
         columns_sql = ", ".join(columns_definitions)
         table_name = "NONPROFITS"
+        # create the SQL query to create the table
         create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_sql});"
         print("Creating table with query:")
         print(create_table_query)
@@ -267,19 +285,26 @@ class community_solarDatabase:
         self.conn.commit()
 
     def parse_nonprofit_data(self):
+        # this function parses the nonprofit data from the downloaded CSV files
+        # and combines them into a single DataFrame
         named_download_dir = os.path.abspath("downloads/named/")
+        # get the list of files in the directory
         files = os.listdir(named_download_dir)
         dfs = []
+        # loop through the files and read each CSV file into a DataFrame
         for file in files:
             county_name = os.path.basename(file).split(".")[0]
             df = pd.read_csv(named_download_dir + "/" + file, skiprows=3)
             df["county"] = county_name
             dfs.append(df)
+        # combine the DataFrames into a single DataFrame
+        # and save it to a CSV file
         combined_df = pd.concat(dfs, ignore_index=True)
         combined_df.to_csv("nonprofit_data.csv", index=False)
 
     def insert_nonprofit_data(self):
         cursor = self.conn.cursor()
+        # read the CSV file to get the data to insert into the table
         df = pd.read_csv("nonprofit_data.csv", low_memory=False)
         df.fillna("", inplace=True)
         print("Columns:", df.columns.tolist())
@@ -291,6 +316,7 @@ class community_solarDatabase:
             f"VALUES ({', '.join(['?' for _ in header])})"
         )
         print("Inserting rows as a test:")
+        # loop through the rows of the DataFrame and insert them into the table
         for index, row in df.iterrows():
             values = row.tolist()
             try:
@@ -309,6 +335,7 @@ class community_solarDatabase:
 
     def check_google_solar_table_exists(self):
         cursor = self.conn.cursor()
+        # check if the GOOGLE_SOLAR table exists in the database
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='GOOGLE_SOLAR';"
         )
@@ -322,6 +349,7 @@ class community_solarDatabase:
 
     def create_google_solar_table(self):
         cursor = self.conn.cursor()
+        # create the GOOGLE_SOLAR table with the specified columns
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS GOOGLE_SOLAR (
@@ -350,10 +378,11 @@ class community_solarDatabase:
         # and we will need to wait 1 minute before retrying
         time.sleep(.2)  # Sleep for 1 second to avoid hitting the rate limit too quickly
         api_url = f"https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude={latitude}&location.longitude={longitude}&requiredQuality=HIGH&key="+self.api_key
+        # make the API request
         response = requests.get(api_url)
         solar_data = response.json()
+        # check if the request was successful
         if response.status_code != 200:
-            #print(f"Error fetching data: {response.status_code}")
             print("Response:", solar_data)
             if response.status_code == 429:
                 print("Rate limit exceeded. Waiting for 1 minute before retrying...")
@@ -371,7 +400,9 @@ class community_solarDatabase:
             return solar_data
 
     def process_solar_data(self, solar_data):
+        # process the solar data and extract the relevant fields
         try:
+            # Extract the solar potential data
             solar_potential = solar_data.get("solarPotential", {})
             solar_configs = solar_potential.get("solarPanelConfigs", [])
             best_config = max(solar_configs, key = lambda c: c.get("yearlyEnergyDcKwh", 0)) if solar_configs else {}
@@ -427,9 +458,11 @@ class community_solarDatabase:
             print(f"Missing field in response: {e}")
             return None
 
-    def get_and_insert_solar_data(self):
+    def get_and_insert_solar_data(self, limit=5):
         cursor = self.conn.cursor()
-        # When not in google solar table, get the first 10 locations from the LOCATIONS table
+        # get the locations that need solar data
+        # normally run this with a limit of 5 to test the code
+        # but for the final run, you can up the limit to 1000 or more but be careful of the rate limit and computer limits
         cursor.execute(f"""
             SELECT 
                 location_id, latitude, longitude, has_solar_data
@@ -444,17 +477,21 @@ class community_solarDatabase:
             ORDER BY 
                 location_id 
             LIMIT 
-                5
-            """)
+                ?
+            """, (limit,))
+        # get the locations that need solar data
         locations = cursor.fetchall()
         for location in locations:
             location_id, latitude, longitude, has_solar_data = location
             print(f"Processing location {location_id} with latitude {latitude} and longitude {longitude}")
             solar_data = self.get_solar_data(latitude, longitude)
+            # check if the solar data is valid
             if solar_data:
+                # process the solar data and insert it into the database
                 processed_data = self.process_solar_data(solar_data)
                 if processed_data:
                     print("Processed data for location: ", location_id)
+                    # update the has_solar_data field in the LOCATIONS table
                     cursor.execute(
                         """
                         UPDATE LOCATIONS 
@@ -463,7 +500,7 @@ class community_solarDatabase:
                         """,
                         (location_id,)
                     )
-                    self.conn.commit()
+                    # insert the solar data into the GOOGLE_SOLAR table 
                     cursor.execute(
                         """
                         INSERT INTO GOOGLE_SOLAR (
@@ -501,6 +538,7 @@ class community_solarDatabase:
             elif solar_data == 403:
                 return
             else:
+                # if the solar data is not valid, update the has_solar_data field in the LOCATIONS table
                 print(f"No solar data found for location {location_id}.")
                 cursor.execute(
                     """
@@ -520,7 +558,7 @@ class community_solarDatabase:
     
     def check_property_codes_table_exists(self):
         cursor = self.conn.cursor()
-        cursor.execute("DROP TABLE IF EXISTS PROPERTY_CODES;")
+        # check if the PROPERTY_CODES table exists in the database
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='PROPERTY_CODES';"
         )
@@ -533,6 +571,7 @@ class community_solarDatabase:
     
     def create_property_codes_table(self):
         cursor = self.conn.cursor()
+        # create the PROPERTY_CODES table with the specified columns
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS PROPERTY_CODES (
@@ -548,6 +587,7 @@ class community_solarDatabase:
 
     def insert_property_codes_data(self):
         cursor = self.conn.cursor()
+        # read the CSV file to get the data to insert into the table
         df = pd.read_csv("property_codes.csv", low_memory=False)
         df.fillna("", inplace=True)
         print("Columns:", df.columns.tolist())
@@ -559,6 +599,7 @@ class community_solarDatabase:
             f"VALUES ({', '.join(['?' for _ in header])})"
         )
         print("Inserting rows:")
+        # loop through the rows of the DataFrame and insert them into the table
         for index, row in df.iterrows():
             values = row.tolist()
             try:
@@ -573,66 +614,82 @@ class community_solarDatabase:
     ### End of property codes table methods ###
 
     def clear_database(self):
+        # This function clears the database by dropping all tables
+        # and resetting the database to its initial state.
         cursor = self.conn.cursor()
         cursor.execute("DROP TABLE IF EXISTS GOOGLE_SOLAR;")
         cursor.execute("DROP TABLE IF EXISTS LOCATIONS;")
         cursor.execute("DROP TABLE IF EXISTS NONPROFITS;")
         cursor.execute("DROP TABLE IF EXISTS CEJST;")
+        cursor.execute("DROP TABLE IF EXISTS PROPERTY_CODES;")
         self.conn.commit()
         print("Database cleared.")
 
-    def show_db_structure(self):
+    def export_data_dictionary_to_excel(self):
         cursor = self.conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = cursor.fetchall()
-        if not tables:
-            print("No tables found in the database.")
-            return
-        for table in tables:
-            table_name = table[0]
-            print(f"Table: {table_name}")
-            cursor.execute(f"PRAGMA table_info({table_name});")
-            columns = cursor.fetchall()
-            if columns:
-                print(" Columns:")
-                for col in columns:
-                    cid, name, col_type, notnull, dflt_value, pk = col
-                    print(f"  - {name} ({col_type}){' PRIMARY KEY' if pk else ''}{' NOT NULL' if notnull else ''}")
-            else:
-                print(" No columns found.")
-            print() 
-
-    def export_db_structure_to_excel(self):
-        cursor = self.conn.cursor()
-        
-        # Retrieve all table names
+        # column definitions for the tables
+        column_definitions = {
+        "location_id": "The unique identifier for the location.",
+        "has_solar_data": "Indicates if solar data has been fetched for the location. 0: No data, 1: No solar data, 2: Solar data available.",
+        "latitude": "The latitude of the location.",
+        "longitude": "The longitude of the location.",
+        "dlgf_prop_class_code": "The property class code from the Indiana Department of Local Government Finance.",
+        "geofulladdress": "The full address of the location.",
+        "geocity": "The city of the location.",
+        "geostate": "The state of the location.",
+        "geozip": "The ZIP code of the location.",
+        "geocounty": "The county of the location.",
+        "geobg10": "The 2010 census block group of the location.",
+        "geobg20": "The 2020 census block group of the location.",
+        "solar_id": "The unique identifier for the solar data.",
+        "location_id": "The unique identifier for the location associated with the solar data.",
+        "latitude": "The latitude of the location.",
+        "longitude": "The longitude of the location.",
+        "imagery_quality": "The quality of the imagery used for the solar data.",
+        "imagery_date": "The date of the imagery used for the solar data.",
+        "max_array_panels_count": "The maximum number of solar panels in the array.",
+        "panel_capacity_watts": "The capacity of each solar panel in watts.",
+        "nominal_power_watts": "The nominal power of the solar array in watts.",
+        "yearly_energy_dc_kwh": "The estimated yearly energy output of the solar array in kilowatt-hours.",
+        "carbon_offset_factor_kg_per_mwh": "The carbon offset factor in kilograms per megawatt-hour.",
+        "estimated_annual_co2_savings_tons": "The estimated annual CO2 savings in tons.",
+        "estimated_houses_powered": "The estimated number of houses powered by the solar array.",
+        "date_added": "The date the solar data was added to the database.",
+        "cejst_id": "The unique identifier for the CEJST data.",
+        "census_tract_2010_ID": "The 2010 census tract ID.",
+        "identified_as_disadvantaged": "Indicates if the census tract is identified as disadvantaged.",
+        "date_added": "The date the CEJST data was added to the database.",
+        "property_code_id": "The unique identifier for the property code.",
+        "property_code": "The property code.",
+        "description": "The description of the property code.",
+        "name": "The name of the property code.",
+        "date_added": "The date the property code was added to the database."
+        }
+        # retrieve all table names
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = [table[0] for table in cursor.fetchall()]
-        
-        # Create an Excel writer object using pandas
-        writer = pd.ExcelWriter("db_structure.xlsx", engine='xlsxwriter')
-        
+        # create an Excel writer object using pandas
+        writer = pd.ExcelWriter("community_solar_database_data_dictionary.xlsx", engine='xlsxwriter')
         for table_name in tables:
-            # Get the structure of the table using PRAGMA table_info
+            # get the structure of the table using PRAGMA table_info
             cursor.execute(f"PRAGMA table_info({table_name});")
             columns = cursor.fetchall()
-            
-            # Each entry in columns is a tuple:
+            # add the column descriptions to the columns list
+            columns = [(col[0], col[1], col[2], col[3], col[4], col[5], column_definitions.get(col[1], "")) for col in columns]
+            # each entry in columns is a tuple:
             # (cid, column_name, data_type, notnull, default_value, pk)
-            df = pd.DataFrame(columns, columns=['cid', 'column_name', 'data_type', 'notnull', 'default_value', 'pk'])
-            
-            # Write the DataFrame to a separate sheet named after the table
+            df = pd.DataFrame(columns, columns=['cid', 'column_name', 'data_type', 'notnull', 'default_value', 'pk', 'column_definition'])
+            # write the DataFrame to a separate sheet named after the table
             df.to_excel(writer, sheet_name=table_name, index=False)
-        
-        # Save the Excel file and close the writer
+        # save the Excel file and close the writer
         writer.close()
 
     def create_database_and_build(self):
         # Gets the newest address data from the Indiana map and saves it to a CSV file
         # Creates the LOCATIONS table and inserts the address data into the table for every location
-        #self.get_locations_data()
-        #self.check_locations_table_exists()
-        #self.insert_locations_data()
+        self.get_locations_data()
+        self.check_locations_table_exists()
+        self.insert_locations_data()
 
         '''
         We have currently dropped this table to save time and space.
@@ -645,32 +702,34 @@ class community_solarDatabase:
         #self.insert_nonprofit_data()
 
         # Creates the GOOGLE_SOLAR table
-        #self.check_google_solar_table_exists()
+        self.check_google_solar_table_exists()
 
         # Creates the CEJST table and inserts the CEJST data into the table for every location
-        #self.check_cejst_table_exists()
-        #self.insert_cejst_data()
+        # You must download the CEJST data from the CEJST website and save it to a CSV file
+        # https://edgi-govdata-archiving.github.io/j40-cejst-2/en/downloads#7.06/40.074/-86.111
+        self.check_cejst_table_exists()
+        self.insert_cejst_data()
 
         # Creates the PROPERTY_CODES table and inserts the property codes data into the table
         self.check_property_codes_table_exists()
         self.insert_property_codes_data()
 
-        # Show the database structure
-        #self.show_db_structure()
-
         # Export the database structure to an Excel file
-        self.export_db_structure_to_excel()
+        self.export_data_dictionary_to_excel()
 
         self.conn.close()
-
-
-
 
 if __name__ == "__main__":
 
     db = community_solarDatabase()
-    #db.clear_database()
-    db.create_database_and_build()
-    #db.get_and_insert_solar_data()
+
+    # create the database and build the tables
+    #db.create_database_and_build()
+
+    # export the database structure to an Excel file
+    #db.export_data_dictionary_to_excel()
+
+    # Get and update solar data for the locations in the database
+    #db.get_and_insert_solar_data(limit=20)
 
 
