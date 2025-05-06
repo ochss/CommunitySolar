@@ -9,6 +9,16 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 st.set_page_config(layout="wide")
 st.title("Community Solar Locations in Indiana")
 
+st.markdown("""
+        <style>
+        iframe {
+            width: 100%;
+            min-height: 400px;
+            height: 100%:
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
 # Data loading function with caching for performance.
 @st.cache_data
 def load_data():
