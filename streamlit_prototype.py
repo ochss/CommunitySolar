@@ -6,7 +6,8 @@ from streamlit_folium import st_folium
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 # set the page config for a wide layout and title
-st.set_page_config(layout="wide", page_title="Community Solar Locations in Indiana")
+st.set_page_config(layout="wide")
+st.title("Community Solar Locations in Indiana")
 
 # Data loading function with caching for performance.
 @st.cache_data
@@ -113,7 +114,7 @@ def load_data():
 df = load_data()
 
 
-#st.title("Community Solar Locations in Indiana")
+
 
 # create three columns for the filters.
 col1, col2, col3 = st.columns(3)
@@ -242,6 +243,6 @@ if selected_cities and selected_codes and selected_disadvantaged:
 
                     
             # render the map.
-            st_folium(m, width=1200, height=1000)
+            st_folium(m, width=1920, height=1000)
 else:
     st.info("Please select all filters to display data.")
